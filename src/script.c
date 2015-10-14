@@ -66,10 +66,15 @@ lua_State *script_create(config *cfg, char *url, char **headers) {
     }
 
     const table_field fields[] = {
-        { "lookup",  LUA_TFUNCTION, script_wrk_lookup  },
-        { "connect", LUA_TFUNCTION, script_wrk_connect },
-        { "path",    LUA_TSTRING,   path               },
-        { NULL,      0,             NULL               },
+        { "lookup",      LUA_TFUNCTION, script_wrk_lookup  },
+        { "connect",     LUA_TFUNCTION, script_wrk_connect },
+        { "path",        LUA_TSTRING,   path               },
+        { "connections", LUA_TNUMBER,   &cfg->connections  },
+        { "duration",    LUA_TNUMBER,   &cfg->duration     },
+        { "threads",     LUA_TNUMBER,   &cfg->threads      },
+        { "timeout",     LUA_TNUMBER,   &cfg->timeout      },
+        { "pipeline",    LUA_TNUMBER,   &cfg->pipeline     },
+        { NULL,          0,             NULL               },
     };
 
     lua_getglobal(L, "wrk");
