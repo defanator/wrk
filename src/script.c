@@ -45,7 +45,7 @@ static const struct luaL_reg threadlib[] = {
     { NULL,         NULL                   }
 };
 
-lua_State *script_create(char *file, char *url, char **headers) {
+lua_State *script_create(config *cfg, char *url, char **headers) {
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);
     (void) luaL_dostring(L, "wrk = require \"wrk\"");
@@ -90,9 +90,9 @@ lua_State *script_create(char *file, char *url, char **headers) {
     }
     lua_pop(L, 5);
 
-    if (file && luaL_dofile(L, file)) {
+    if (cfg->script && luaL_dofile(L, cfg->script)) {
         const char *cause = lua_tostring(L, -1);
-        fprintf(stderr, "%s: %s\n", file, cause);
+        fprintf(stderr, "%s: %s\n", cfg->script, cause);
     }
 
     return L;
