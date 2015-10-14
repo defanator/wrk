@@ -24,6 +24,19 @@
 #define RECORD_INTERVAL_MS  100
 
 typedef struct {
+    uint64_t connections;
+    uint64_t duration;
+    uint64_t threads;
+    uint64_t timeout;
+    uint64_t pipeline;
+    bool     delay;
+    bool     dynamic;
+    bool     latency;
+    char    *script;
+    SSL_CTX *ctx;
+} config;
+
+typedef struct {
     pthread_t thread;
     aeEventLoop *loop;
     struct addrinfo *addr;

@@ -4,18 +4,7 @@
 #include "script.h"
 #include "main.h"
 
-static struct config {
-    uint64_t connections;
-    uint64_t duration;
-    uint64_t threads;
-    uint64_t timeout;
-    uint64_t pipeline;
-    bool     delay;
-    bool     dynamic;
-    bool     latency;
-    char    *script;
-    SSL_CTX *ctx;
-} cfg;
+static config *cfg;
 
 static struct {
     stats *latency;
@@ -60,8 +49,9 @@ static void usage() {
 int main(int argc, char **argv) {
     char *url, **headers = zmalloc(argc * sizeof(char *));
     struct http_parser_url parts = {};
+    cfg = zmalloc(sizeof(config));
 
-    if (parse_args(&cfg, &url, &parts, headers, argc, argv)) {
+    if (parse_args(cfg, &url, &parts, headers, argc, argv)) {
         usage();
         exit(1);
     }
@@ -72,7 +62,7 @@ int main(int argc, char **argv) {
     char *service = port ? port : schema;
 
     if (!strncmp("https", schema, 5)) {
-        if ((cfg.ctx = ssl_init()) == NULL) {
+        if ((cfg->ctx = ssl_init()) == NULL) {
             fprintf(stderr, "unable to initialize SSL\n");
             ERR_print_errors_fp(stderr);
             exit(1);
@@ -87,29 +77,29 @@ int main(int argc, char **argv) {
     signal(SIGPIPE, SIG_IGN);
     signal(SIGINT,  SIG_IGN);
 
-    statistics.latency  = stats_alloc(cfg.timeout * 1000);
+    statistics.latency  = stats_alloc(cfg->timeout * 1000);
     statistics.requests = stats_alloc(MAX_THREAD_RATE_S);
-    thread *threads     = zcalloc(cfg.threads * sizeof(thread));
+    thread *threads     = zcalloc(cfg->threads * sizeof(thread));
 
-    lua_State *L = script_create(cfg.script, url, headers);
+    lua_State *L = script_create(cfg->script, url, headers);
     if (!script_resolve(L, host, service)) {
         char *msg = strerror(errno);
         fprintf(stderr, "unable to connect to %s:%s %s\n", host, service, msg);
         exit(1);
     }
 
-    for (uint64_t i = 0; i < cfg.threads; i++) {
+    for (uint64_t i = 0; i < cfg->threads; i++) {
         thread *t      = &threads[i];
-        t->loop        = aeCreateEventLoop(10 + cfg.connections * 3);
-        t->connections = cfg.connections / cfg.threads;
+        t->loop        = aeCreateEventLoop(10 + cfg->connections * 3);
+        t->connections = cfg->connections / cfg->threads;
 
-        t->L = script_create(cfg.script, url, headers);
+        t->L = script_create(cfg->script, url, headers);
         script_init(L, t, argc - optind, &argv[optind]);
 
         if (i == 0) {
-            cfg.pipeline = script_verify_request(t->L);
-            cfg.dynamic  = !script_is_static(t->L);
-            cfg.delay    = script_has_delay(t->L);
+            cfg->pipeline = script_verify_request(t->L);
+            cfg->dynamic  = !script_is_static(t->L);
+            cfg->delay    = script_has_delay(t->L);
             if (script_want_response(t->L)) {
                 parser_settings.on_header_field = header_field;
                 parser_settings.on_header_value = header_value;
@@ -131,19 +121,19 @@ int main(int argc, char **argv) {
     sigfillset(&sa.sa_mask);
     sigaction(SIGINT, &sa, NULL);
 
-    char *time = format_time_s(cfg.duration);
+    char *time = format_time_s(cfg->duration);
     printf("Running %s test @ %s\n", time, url);
-    printf("  %"PRIu64" threads and %"PRIu64" connections\n", cfg.threads, cfg.connections);
+    printf("  %"PRIu64" threads and %"PRIu64" connections\n", cfg->threads, cfg->connections);
 
     uint64_t start    = time_us();
     uint64_t complete = 0;
     uint64_t bytes    = 0;
     errors errors     = { 0 };
 
-    sleep(cfg.duration);
+    sleep(cfg->duration);
     stop = 1;
 
-    for (uint64_t i = 0; i < cfg.threads; i++) {
+    for (uint64_t i = 0; i < cfg->threads; i++) {
         thread *t = &threads[i];
         pthread_join(t->thread, NULL);
 
@@ -162,15 +152,15 @@ int main(int argc, char **argv) {
     long double req_per_s   = complete   / runtime_s;
     long double bytes_per_s = bytes      / runtime_s;
 
-    if (complete / cfg.connections > 0) {
-        int64_t interval = runtime_us / (complete / cfg.connections);
+    if (complete / cfg->connections > 0) {
+        int64_t interval = runtime_us / (complete / cfg->connections);
         stats_correct(statistics.latency, interval);
     }
 
     print_stats_header();
     print_stats("Latency", statistics.latency, format_time_us);
     print_stats("Req/Sec", statistics.requests, format_metric);
-    if (cfg.latency) print_stats_latency(statistics.latency);
+    if (cfg->latency) print_stats_latency(statistics.latency);
 
     char *runtime_msg = format_time_us(runtime_us);
 
@@ -202,7 +192,7 @@ void *thread_main(void *arg) {
     char *request = NULL;
     size_t length = 0;
 
-    if (!cfg.dynamic) {
+    if (!cfg->dynamic) {
         script_request(thread->L, &request, &length);
     }
 
@@ -211,10 +201,10 @@ void *thread_main(void *arg) {
 
     for (uint64_t i = 0; i < thread->connections; i++, c++) {
         c->thread = thread;
-        c->ssl     = cfg.ctx ? SSL_new(cfg.ctx) : NULL;
+        c->ssl     = cfg->ctx ? SSL_new(cfg->ctx) : NULL;
         c->request = request;
         c->length  = length;
-        c->delayed = cfg.delay;
+        c->delayed = cfg->delay;
         connect_socket(thread, c);
     }
 
@@ -341,7 +331,7 @@ static int response_complete(http_parser *parser) {
         if (!stats_record(statistics.latency, now - c->start)) {
             thread->errors.timeout++;
         }
-        c->delayed = cfg.delay;
+        c->delayed = cfg->delay;
         aeCreateFileEvent(thread->loop, c->fd, AE_WRITABLE, socket_writeable, c);
     }
 
@@ -390,11 +380,11 @@ static void socket_writeable(aeEventLoop *loop, int fd, void *data, int mask) {
     }
 
     if (!c->written) {
-        if (cfg.dynamic) {
+        if (cfg->dynamic) {
             script_request(thread->L, &c->request, &c->length);
         }
         c->start   = time_us();
-        c->pending = cfg.pipeline;
+        c->pending = cfg->pipeline;
     }
 
     char  *buf = c->request + c->written;
@@ -474,11 +464,11 @@ static struct option longopts[] = {
     { NULL,          0,                 NULL,  0  }
 };
 
-static int parse_args(struct config *cfg, char **url, struct http_parser_url *parts, char **headers, int argc, char **argv) {
+static int parse_args(config *cfg, char **url, struct http_parser_url *parts, char **headers, int argc, char **argv) {
     char **header = headers;
     int c;
 
-    memset(cfg, 0, sizeof(struct config));
+    memset(cfg, 0, sizeof(config));
     cfg->threads     = 2;
     cfg->connections = 10;
     cfg->duration    = 10;
