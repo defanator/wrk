@@ -51,6 +51,8 @@ int try_ip_bind_address_no_port = 1;
 static void usage() {
 #ifdef TLS1_3_VERSION
 #define TLS1_3_HELP_MSG ", TLS1.3"
+#else
+#define TLS1_3_HELP_MSG ""
 #endif
 
     printf("Usage: wrk <options> <url>                            \n"
