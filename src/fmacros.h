@@ -30,11 +30,17 @@
 #ifndef _REDIS_FMACRO_H
 #define _REDIS_FMACRO_H
 
+#ifndef _BSD_SOURCE
 #define _BSD_SOURCE
+#endif
 
 #if defined(__linux__)
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
+#ifndef _DEFAULT_SOURCE
 #define _DEFAULT_SOURCE
+#endif
 #endif
 
 #if defined(_AIX)
