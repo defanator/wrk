@@ -190,6 +190,10 @@ int main(int argc, char **argv) {
     printf("Requests/sec: %9.2Lf\n", req_per_s);
     printf("Transfer/sec: %10sB\n", format_binary(bytes_per_s));
 
+    if (cfg.ctx) {
+        printf("TLS protocol %s cipher %s\n", ssl_protocol, ssl_cipher);
+    }
+
     if (script_has_done(L)) {
         script_summary(L, runtime_us, complete, bytes);
         script_errors(L, &errors);

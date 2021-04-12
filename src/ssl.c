@@ -8,6 +8,8 @@
 
 #include "ssl.h"
 
+u_char *ssl_protocol, *ssl_cipher;
+
 SSL_CTX *ssl_init() {
     SSL_CTX *ctx = NULL;
 
@@ -36,6 +38,13 @@ status ssl_connect(connection *c, char *host) {
             default:                   return ERROR;
         }
     }
+
+    /* assuming there will be the same proto/cipher for all subsequent connections */
+    if (ssl_protocol == NULL) {
+        ssl_protocol = (u_char *) SSL_get_version(c->ssl);
+        ssl_cipher = (u_char *) SSL_get_cipher_name(c->ssl);
+    }
+
     return OK;
 }
 
