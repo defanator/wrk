@@ -218,6 +218,7 @@ int main(int argc, char **argv) {
     printf("Transfer/sec: %10sB\n", format_binary(bytes_per_s));
 
     if (cfg.ctx) {
+        printf("TLS protocol %s cipher %s\n", ssl_protocol, ssl_cipher);
         printf("TLS new conn %lu reused %lu miss %lu finished conn %lu sess_cb_hit %lu renegotiation %lu timeout %lu full remove %lu\n",
             SSL_CTX_sess_connect(cfg.ctx),
             SSL_CTX_sess_hits(cfg.ctx),

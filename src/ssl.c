@@ -9,6 +9,7 @@
 #include "ssl.h"
 
 int ssl_data_index;
+u_char *ssl_protocol, *ssl_cipher;
 
 static int ssl_new_client_session(SSL *ssl, SSL_SESSION *session) {
     connection *c = SSL_get_ex_data(ssl, ssl_data_index);
@@ -91,6 +92,13 @@ status ssl_connect(connection *c, char *host) {
             default:                   return ERROR;
         }
     }
+
+    /* assuming there will be the same proto/cipher for all subsequent connections */
+    if (ssl_protocol == NULL) {
+        ssl_protocol = (u_char *) SSL_get_version(c->ssl);
+        ssl_cipher = (u_char *) SSL_get_cipher_name(c->ssl);
+    }
+
     return OK;
 }
 

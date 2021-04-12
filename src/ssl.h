@@ -12,5 +12,6 @@ status ssl_write(connection *, char *, size_t, size_t *);
 size_t ssl_readable(connection *);
 
 extern int ssl_data_index;
+extern u_char *ssl_protocol, *ssl_cipher;
 
 #endif /* SSL_H */
